@@ -11,6 +11,8 @@ import '../widgets/visitor_form.dart';
 import '../widgets/recent_entries.dart';
 import '../widgets/pin_dialog.dart';
 import 'login_screen.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -48,6 +50,48 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
     }
+  }
+
+  Future<void> _exportData() async {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final startDate =
+        '${startOfMonth.year}-${startOfMonth.month.toString().padLeft(2, '0')}-${startOfMonth.day.toString().padLeft(2, '0')}';
+    final endDate =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final provider = context.read<LunchProvider>();
+    final response = await provider.exportData(
+      startDate: startDate,
+      endDate: endDate,
+    );
+
+    if (response.success && response.data != null) {
+      // Trigger CSV download
+      final csvData = response.data['csv'] ?? '';
+      final blob = html.Blob([csvData], 'text/csv');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.AnchorElement(href: url)
+        ..setAttribute('download', 'lunch_records_${now.year}_${now.month}.csv')
+        ..click();
+      html.Url.revokeObjectUrl(url);
+
+      if (mounted) {
+        _showSnackBar('CSV exported successfully');
+      }
+    } else {
+      if (mounted) {
+        _showSnackBar(response.message ?? 'Export failed', isError: true);
+      }
+    }
+  }
+
+  bool _isAdmin() {
+    final username = StorageService.getUsername();
+    // Admin check - customize based on your admin usernames
+    return username != null &&
+        (username.toLowerCase() == 'admin' ||
+            username.toLowerCase().contains('admin'));
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -289,6 +333,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       onPressed: () =>
                           context.read<LunchProvider>().refreshAll(),
                     ),
+                    if (_isAdmin())
+                      IconButton(
+                        icon: const Icon(Icons.download, color: Colors.white),
+                        onPressed: _exportData,
+                        tooltip: 'Export to CSV',
+                      ),
                     IconButton(
                       icon: const Icon(Icons.logout, color: Colors.white),
                       onPressed: _logout,

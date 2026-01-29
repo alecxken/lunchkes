@@ -164,6 +164,66 @@ class ApiService {
       return ApiResponse.error('Connection failed: $e');
     }
   }
+
+  // Export Data to CSV
+  static Future<ApiResponse> exportData({
+    String? startDate,
+    String? endDate,
+    String? category,
+  }) async {
+    try {
+      final params = <String, String>{};
+      if (startDate != null) params['start_date'] = startDate;
+      if (endDate != null) params['end_date'] = endDate;
+      if (category != null) params['category'] = category;
+
+      final uri = Uri.parse('$baseUrl/export').replace(queryParameters: params);
+      final response = await http.get(uri, headers: headers).timeout(timeout);
+
+      return ApiResponse.fromResponse(response);
+    } catch (e) {
+      return ApiResponse.error('Export failed: $e');
+    }
+  }
+
+  // Sync with retry logic
+  static Future<ApiResponse> syncWithRetry({int maxRetries = 3}) async {
+    int attempts = 0;
+    while (attempts < maxRetries) {
+      try {
+        final response = await http
+            .post(Uri.parse('$baseUrl/sync'), headers: headers)
+            .timeout(timeout);
+
+        return ApiResponse.fromResponse(response);
+      } catch (e) {
+        attempts++;
+        if (attempts >= maxRetries) {
+          return ApiResponse.error('Sync failed after $maxRetries attempts: $e');
+        }
+        await Future.delayed(Duration(seconds: attempts * 2));
+      }
+    }
+    return ApiResponse.error('Sync failed');
+  }
+
+  // Clear synced data from server
+  static Future<ApiResponse> clearSyncedData({int? olderThanDays}) async {
+    try {
+      final body = olderThanDays != null ? {'older_than_days': olderThanDays} : null;
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/clear-synced'),
+            headers: headers,
+            body: body != null ? json.encode(body) : null,
+          )
+          .timeout(timeout);
+
+      return ApiResponse.fromResponse(response);
+    } catch (e) {
+      return ApiResponse.error('Clear failed: $e');
+    }
+  }
 }
 
 class ApiResponse {

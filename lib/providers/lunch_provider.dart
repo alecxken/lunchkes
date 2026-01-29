@@ -1,6 +1,7 @@
 // lib/providers/lunch_provider.dart
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/storage_service.dart';
 
 class LunchProvider extends ChangeNotifier {
   bool _isLoading = false;
@@ -123,16 +124,48 @@ class LunchProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final response = await ApiService.syncToServer();
+    // Use improved sync with retry
+    final response = await ApiService.syncWithRetry(maxRetries: 3);
 
     _isLoading = false;
 
     if (response.success) {
+      // Clear local cache after successful sync
+      await StorageService.clearAllCache();
+      await StorageService.setLastSyncTime();
+
+      // Check storage and cleanup if needed
+      final isOverLimit = await StorageService.isStorageOverLimit();
+      if (isOverLimit) {
+        await StorageService.cleanupOldData();
+      }
+
       await loadSyncStatus();
       await loadRecentRecords();
     }
 
     notifyListeners();
+    return response;
+  }
+
+  // Export data to CSV
+  Future<ApiResponse> exportData({
+    String? startDate,
+    String? endDate,
+    String? category,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    final response = await ApiService.exportData(
+      startDate: startDate,
+      endDate: endDate,
+      category: category,
+    );
+
+    _isLoading = false;
+    notifyListeners();
+
     return response;
   }
 
