@@ -17,7 +17,7 @@ class ApiService {
     try {
       final response = await http
           .post(
-            Uri.parse('$baseUrl/verify-pin'),
+            Uri.parse('$baseUrl/staff-lunch/verify-login'),
             headers: headers,
             body: json.encode({'username': username, 'pin': pin}),
           )
@@ -199,7 +199,9 @@ class ApiService {
       } catch (e) {
         attempts++;
         if (attempts >= maxRetries) {
-          return ApiResponse.error('Sync failed after $maxRetries attempts: $e');
+          return ApiResponse.error(
+            'Sync failed after $maxRetries attempts: $e',
+          );
         }
         await Future.delayed(Duration(seconds: attempts * 2));
       }
@@ -210,7 +212,9 @@ class ApiService {
   // Clear synced data from server
   static Future<ApiResponse> clearSyncedData({int? olderThanDays}) async {
     try {
-      final body = olderThanDays != null ? {'older_than_days': olderThanDays} : null;
+      final body = olderThanDays != null
+          ? {'older_than_days': olderThanDays}
+          : null;
       final response = await http
           .post(
             Uri.parse('$baseUrl/clear-synced'),
