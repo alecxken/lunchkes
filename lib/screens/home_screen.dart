@@ -10,9 +10,8 @@ import '../widgets/staff_form.dart';
 import '../widgets/visitor_form.dart';
 import '../widgets/recent_entries.dart';
 import '../widgets/pin_dialog.dart';
+import '../utils/file_export_helper.dart';
 import 'login_screen.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -69,15 +68,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (response.success && response.data != null) {
       // Trigger CSV download
       final csvData = response.data['csv'] ?? '';
-      final blob = html.Blob([csvData], 'text/csv');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute('download', 'lunch_records_${now.year}_${now.month}.csv')
-        ..click();
-      html.Url.revokeObjectUrl(url);
+      final filename = 'lunch_records_${now.year}_${now.month.toString().padLeft(2, '0')}.csv';
 
-      if (mounted) {
-        _showSnackBar('CSV exported successfully');
+      try {
+        await FileExportHelper.downloadCSV(csvData, filename);
+        if (mounted) {
+          _showSnackBar('CSV exported successfully');
+        }
+      } catch (e) {
+        if (mounted) {
+          _showSnackBar('Export failed: $e', isError: true);
+        }
       }
     } else {
       if (mounted) {
